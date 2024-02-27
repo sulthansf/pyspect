@@ -144,5 +144,5 @@ RUN apt-get update && \
     apt-get install -y \
         python3-pip \
         && \
-    pip install attrs /opt/wheelhouse/*.whl && \
+    pip install -U pip attrs /opt/wheelhouse/*.whl && \
     rm -r /var/lib/apt/lists/* /opt/wheelhouse
