@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import heterocl as hcl
 import numpy as np
 import time
@@ -5,11 +7,22 @@ import time
 from . import math as hcl_math
 from .derivatives import spatial_derivative
 from .grid import Grid
+from .model import Model
 from .shapes import *
 
 class Solver: 
 
     interactive: bool
+
+    grid: Grid = property(lambda self: self._grid)
+    model: Model = property(lambda self: self._model)
+    debug: bool = property(lambda self: self._debug)
+    accuracy: str = property(lambda self: self._accuracy)
+
+    dtype: hcl.Type = property(lambda self: self._dtype)
+    state_shape: tuple[int] = property(lambda self: self._state_shape)
+    ctrl_shape: tuple[int] = property(lambda self: self._ctrl_shape)
+    dstb_shape: tuple[int] = property(lambda self: self._dstb_shape)
 
     def __init__(self, grid, model, *, 
                  interactive=True,
@@ -17,27 +30,26 @@ class Solver:
                  accuracy='low',
                  dtype=hcl.Float()):
 
-        # Solver options
         self.interactive = interactive
-        self.debug = debug
-
         if self.interactive:
             print("== Welcome to optimized_dp ==")
 
-        # Initialize the HCL environment
-        hcl.init(hcl.Float(32))
 
-        self.accuracy = accuracy
+        # Solver options
+        self._debug = debug
+        self._accuracy = accuracy
         assert self.accuracy == 'low', 'This modification to odp only supports low accuracy'
 
-        self.dtype = dtype
+        # Initialize the HCL environment
+        self._dtype = dtype
+        hcl.init(self.dtype)
 
-        self.grid = grid
-        self.model = model
+        self._grid = grid
+        self._model = model
 
-        self.state_shape = (self.model.state_dims,)
-        self.ctrl_shape = (self.model.ctrl_dims,)
-        self.dstb_shape = (self.model.dstb_dims,)
+        self._state_shape = (self.model.state_dims,)
+        self._ctrl_shape = (self.model.ctrl_dims,)
+        self._dstb_shape = (self.model.dstb_dims,)
 
         self._executable = None
 
@@ -247,19 +259,14 @@ class Solver:
 
         return step_bound.v
 
-
 class HJSolver(Solver):
 
-    _tau: np.ndarray
-    _grid: Grid
-    _accuracy: str
+    tau: np.ndarray = property(lambda self: self._tau)
 
     def __init__(self, grid, tau, model, **kwargs):
         super().__init__(grid, model, **kwargs)
 
         self._tau = np.asarray(tau)
-        self._grid = grid
-        self._model = model
 
         # Get executable, obstacle check intial value function
         self.build()
@@ -268,7 +275,7 @@ class HJSolver(Solver):
                  target, target_mode,
                  constraint=None, constraint_mode='',
                  direction='brs'):
-        
+
         assert direction in ('frs', 'brs')
         assert direction == 'brs', 'Only supported right now' # FIXME
 

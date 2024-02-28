@@ -105,3 +105,5 @@ def intersection(shape, *shapes):
         result = np.maximum(result, shape)
     return result
 
+def make_tube(vf, tau):
+    return np.concatenate([vf[..., np.newaxis]] * len(tau), axis=-1)

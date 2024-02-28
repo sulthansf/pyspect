@@ -1,10 +1,10 @@
 import jax.numpy as jnp
 
-from hj_reachability import dynamics
-from hj_reachability import sets
+from .. import dynamics
+from .. import sets
 
 
-class SVEA5D(dynamics.ControlAndDisturbanceAffineDynamics):
+class Bicycle5D(dynamics.ControlAndDisturbanceAffineDynamics):
 
     def __init__(self,
                  min_steer, max_steer,
