@@ -178,10 +178,11 @@ class Until(Rule):
     min_children = 2
 
     def _eval(self, **leafs: Set) -> dict[str, Set]:
+        # left U right
         left = self.children[0]._eval(**leafs)
         right = self.children[1]._eval(**leafs)
         out = {**left, **right}
-        out['...'] = left['...'].reach(right['...'])
+        out['...'] = right['...'].reach(left['...'])
         return out
     
     def _check(self, **leafs: Set) -> str:
