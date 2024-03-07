@@ -172,6 +172,32 @@ def solve(solver_settings, dynamics, grid, times, target, constraints=None, prog
             initial_values[np.newaxis],
             jax.lax.scan(f, (times[0], initial_values), np.arange(1, len(times)))[1]
         ])
+    
+### NumPy thing ###
+
+def solve(solver_settings, dynamics, grid, timeline, target_vf, constraint_vf, progress_bar=True):
+    with (_try_get_progress_bar(timeline[0], timeline[-1])
+          if progress_bar is True else contextlib.nullcontext(progress_bar)) as bar:
+    
+        def scan(f, init, xs):
+            carry, ys = init, []
+            for x in xs:
+                carry, y = f(carry, x)
+                ys.append(y)
+            return np.stack(ys)
+
+        def f(carry, j):
+            i, vf = carry
+            vf = step(solver_settings, dynamics, grid, timeline[i], vf, timeline[j], bar)
+            vf = jnp.minimum(vf, target_vf[j])
+            vf = jnp.maximum(vf, constraint_vf[j])
+            return (j, vf), np.array(vf)
+
+        vf = np.maximum(target_vf[0], constraint_vf[0])
+        return np.concatenate([
+            vf[np.newaxis],
+            scan(f, (0, jnp.array(vf)), range(1, len(timeline))),
+        ])
 
 # @functools.partial(jax.jit, static_argnames=("dynamics", "progress_bar"))
 # def solve(solver_settings, dynamics, grid, times, initial_values, progress_bar=True):
