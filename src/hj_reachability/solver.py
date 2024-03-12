@@ -179,6 +179,9 @@ def solve(solver_settings, dynamics, grid, timeline, target_vf, constraint_vf, p
     with (_try_get_progress_bar(timeline[0], timeline[-1])
           if progress_bar is True else contextlib.nullcontext(progress_bar)) as bar:
     
+        is_target_invariant = shp.is_invariant(grid, timeline, target_vf)
+        is_constraint_invariant = shp.is_invariant(grid, timeline, constraint_vf)
+        
         def scan(f, init, xs):
             carry, ys = init, []
             for x in xs:
@@ -189,11 +192,13 @@ def solve(solver_settings, dynamics, grid, timeline, target_vf, constraint_vf, p
         def f(carry, j):
             i, vf = carry
             vf = step(solver_settings, dynamics, grid, timeline[i], vf, timeline[j], bar)
-            vf = jnp.minimum(vf, target_vf[j])
-            vf = jnp.maximum(vf, constraint_vf[j])
+            vf = jnp.minimum(vf, target_vf if is_target_invariant else target_vf[j])
+            vf = jnp.maximum(vf, constraint_vf if is_constraint_invariant else constraint_vf[j])
             return (j, vf), np.array(vf)
 
-        vf = np.maximum(target_vf[0], constraint_vf[0])
+        vf = target_vf if is_target_invariant else target_vf[0]
+        if constraint_vf is not None:
+            vf = np.maximum(vf, constraint_vf if is_constraint_invariant else constraint_vf[0])
         return np.concatenate([
             vf[np.newaxis],
             scan(f, (0, jnp.array(vf)), range(1, len(timeline))),

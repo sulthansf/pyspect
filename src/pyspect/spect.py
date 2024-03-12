@@ -3,7 +3,7 @@ from typing_extensions import Self
 
 import numpy as np
 
-class Set(ABC): 
+class Set(ABC):
 
     approx: str
 

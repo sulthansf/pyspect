@@ -4,9 +4,9 @@ from typing_extensions import Self
 
 from .spect import Set
 
-__all__ = ("Rule", "Proposition", "Not", "And", "Or", "Until", "Always")
+__all__ = ("Spec", "Proposition", "Not", "And", "Or", "Until", "Always")
 
-class Rule(ABC): 
+class Spec(ABC): 
 
     name: str
     children: list[Self]
@@ -52,7 +52,7 @@ class Rule(ABC):
         for c in self.children:
             yield from c.iter_props()
 
-class Proposition(Rule):
+class Proposition(Spec):
     """
     Replaced with a set S such that, for proposition p,
 
@@ -84,7 +84,7 @@ class Proposition(Rule):
     def _check(self, **leafs):
         return leafs[self.name].approx
 
-class Not(Rule):
+class Not(Spec):
     """
     For the set S that is computed by child, apply the set complement S^C.
     """
@@ -103,7 +103,7 @@ class Not(Rule):
                 'under' if child_approx == 'over' else
                 'exact')
 
-class And(Rule):
+class And(Spec):
     """
     For n >= 2 children there is corresponding sets S_i, i < n, which set intersections is applied on.
     This operation is left-associative.
@@ -137,7 +137,7 @@ class And(Rule):
                 approx = child_approx
         return approx
 
-class Or(Rule):
+class Or(Spec):
     """
     For n >= 2 children there is corresponding sets S_i, i < n, which set union is applied on.
     This operation is left-associative.
@@ -172,7 +172,7 @@ class Or(Rule):
                 approx = child_approx
         return approx
 
-class Until(Rule):
+class Until(Spec):
     
     max_children = 2
     min_children = 2
@@ -189,9 +189,9 @@ class Until(Rule):
         left_approx = self.children[0]._check(**leafs)
         right_approx = self.children[1]._check(**leafs)
         # TODO: Implement approximation type checking for Until
-        return 'over'
+        return 'exact'
 
-class Always(Rule):
+class Always(Spec):
     
     max_children = 1
 
@@ -204,4 +204,4 @@ class Always(Rule):
         left_approx = self.children[0]._check(**leafs)
         right_approx = self.children[1]._check(**leafs)
         # TODO: Implement approximation type checking for Until
-        return 'under'
+        return 'exact'
