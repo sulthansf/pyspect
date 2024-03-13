@@ -138,9 +138,10 @@ def rectangle(grid: Grid, target_min, target_max, axes=None):
     data = -np.inf * np.ones(grid.shape)
     axes = axes or list(range(grid.ndim))
     for i, vmin, vmax in zip(axes, target_min, target_max):
-        patch = ranged_space(grid, i, vmin, vmax)
         if vmax < vmin and periodics[i]:
-            patch = complement(patch)
+            patch = complement(ranged_space(grid, i, vmax, vmin))
+        else:
+            patch = ranged_space(grid, i, vmin, vmax)
         data = intersection(data, patch)
     return data
 
