@@ -1,15 +1,21 @@
 from abc import ABC, abstractmethod
-from typing_extensions import Self
+from typing_extensions import Self, Optional
 
 import numpy as np
 
+U, E, O, I = -1, 0, 1, None
+ApproxCheckRet = Optional[int]
+
+STR2APPROX = dict(U=-1,     E=0,     O=1,    I=None,
+                  under=-1, exact=0, over=1, invalid=None)
+
 class Set(ABC):
 
-    approx: str
+    approx: ApproxCheckRet
 
     def __init__(self, approx: str = 'exact'):
-        self.approx = approx
-        assert self.approx in ('over', 'exact', 'under'), 'Invalid approximation type'
+        # assert approx in STR2APPROX, f'"{approx}"nvalid approximation type'
+        self.approx = approx # STR2APPROX[approx]
 
     @classmethod
     def _overloads(cls, name: str):
@@ -36,9 +42,7 @@ class Set(ABC):
 
     def complement(self) -> Self:
         s = self.copy()
-        s.approx = ('over' if self.approx == 'under' else
-                    'under' if self.approx == 'over' else
-                    'exact')
+        s.approx = None if self.approx is None else -1 * self.approx
         return s
 
     def union(self, other: Self) -> Self:

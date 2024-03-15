@@ -1,25 +1,34 @@
 from __future__ import annotations
-from abc import ABC, abstractmethod
-from typing_extensions import Self
+from typing_extensions import Self, Callable, Optional
 
 from .spect import Set
 
-__all__ = ("Spec", "Proposition", "Not", "And", "Or", "Until", "Always")
+__all__ = (
+    "Spec",
+    "Proposition",
+    "Not",
+    "And",
+    "Or",
+    "Until",
+    "Always",
+    "Implies",
+)
 
-class Spec(ABC): 
+U, E, O, I = -1, 0, 1, None
+ApproxCheckRet = Optional[int]
+
+class Spec:
 
     name: str
     children: list[Self]
     max_children: int = -1
     min_children: int = -1
+    equiv: Callable[..., Spec] = None
 
-    def __init__(self, *children, name='', **kwargs):
-        children = list(children)
-        props = [Proposition(k) for k, v in kwargs.items() if v is Ellipsis]
-        kwargs = {k: v for k, v in kwargs.items() if v is not Ellipsis}
+    def __init__(self, *children, name=''):
 
         self.name = name
-        self.children = children + props
+        self.children = [Proposition(c) if isinstance(c, str) else c for c in children]
 
         if self.max_children > 0:
             assert len(self.children) <= self.max_children, f'Too many children for {type(self).__name__}'
@@ -39,14 +48,17 @@ class Spec(ABC):
                 return True
         return False
 
-    def __call__(self, *args, **kwargs):
-        return self._eval(*args, **kwargs)
+    def __call__(self, **props):
+        # assert self._approxCheck(**props) is not None, 'Invalid approximation'
+        return self._eval(**props)
     
-    @abstractmethod
-    def _eval(self, **leafs: Set) -> dict[str, Set]: pass
+    def _eval(self, **props: Set) -> Set:
+        assert self.equiv is not None, '"_eval" not implemented'
+        return self.equiv(*self.children)._eval(**props)
 
-    @abstractmethod
-    def _check(self, **leafs: Set) -> str: pass
+    def _approxCheck(self, **props: Set) -> ApproxCheckRet:
+        assert self.equiv is not None, '"_approxCheck" not implemented'
+        return self.equiv(*self.children)._approxCheck(**props)
 
     def iter_props(self):
         for c in self.children:
@@ -76,13 +88,15 @@ class Proposition(Spec):
     def iter_props(self):
         yield self
 
-    def _eval(self, **leafs):
+    def _eval(self, **props):
         # '...' represents the childrens' subtree.
         # a proposition is a leaf node is itself the subtree
-        return {'...': leafs[self.name]}
+        p = props[self.name]
+        if isinstance(p, Spec):
+            return p._eval(**props)
 
-    def _check(self, **leafs):
-        return leafs[self.name].approx
+    def _approxCheck(self, **props):
+        return props[self.name].approx
 
 class Not(Spec):
     """
@@ -92,13 +106,11 @@ class Not(Spec):
     max_children = 1
     min_children = 1
 
-    def _eval(self, **leafs: Set) -> dict[str, Set]:
-        out = self.children[0]._eval(**leafs)
-        out['...'] = out['...'].complement()
-        return out
+    def _eval(self, **props: Set) -> Set:
+        return self.children[0]._eval(**props).complement()
     
-    def _check(self, **leafs: Set) -> str:
-        child_approx = self.children[0]._check(**leafs)
+    def _approxCheck(self, **props: Set) -> str:
+        child_approx = self.children[0]._approxCheck(**props)
         return ('over' if child_approx == 'under' else
                 'under' if child_approx == 'over' else
                 'exact')
@@ -111,22 +123,14 @@ class And(Spec):
 
     min_children = 2
 
-    def _eval(self, **leafs: Set) -> dict[str, Set]:
-
-        # First child/subtree
-        out = self.children[0]._eval(**leafs)
-        s = out['...']
-
-        # Subsequent children/subtrees
+    def _eval(self, **props: Set) -> Set:
+        out = self.children[0]._eval(**props)
         for child in self.children[1:]:
-            out.update(child._eval(**leafs))
-            s = s.intersect(out['...'])
-
-        out['...'] = s
+            out = out.intersect(child._eval(**props))
         return out
     
-    def _check(self, **leafs: Set) -> str:
-        approx, *child_approxs = [child._check(**leafs) for child in self.children]
+    def _approxCheck(self, **props: Set) -> str:
+        approx, *child_approxs = [child._approxCheck(**props) for child in self.children]
         for i, child_approx in enumerate(child_approxs):
             child = self.children[i]
             if approx == 'over':
@@ -145,23 +149,15 @@ class Or(Spec):
 
     min_children = 2
 
-    def _eval(self, **leafs: Set) -> dict[str, Set]:
-        out = {}
-
-        # First child/subtree
-        out = self.children[0]._eval(**leafs)
-        s = out['...']
-
-        # Subsequent children/subtrees
+    def _eval(self, **props: Set) -> Set:
+        out = self.children[0]._eval(**props)
+        print(self.children[0], out)
         for child in self.children[1:]:
-            out.update(child._eval(**leafs))
-            s = s.union(out['...'])
-
-        out['...'] = s
+            out = out.union(child._eval(**props))
         return out
     
-    def _check(self, **leafs: Set) -> str:
-        approx, *child_approxs = [child._check(**leafs) for child in self.children]
+    def _approxCheck(self, **props: Set) -> str:
+        approx, *child_approxs = [child._approxCheck(**props) for child in self.children]
         for i, child_approx in enumerate(child_approxs):
             child = self.children[i]
             if approx == 'over':
@@ -177,17 +173,15 @@ class Until(Spec):
     max_children = 2
     min_children = 2
 
-    def _eval(self, **leafs: Set) -> dict[str, Set]:
+    def _eval(self, **props: Set) -> dict[str, Set]:
         # left U right
-        left = self.children[0]._eval(**leafs)
-        right = self.children[1]._eval(**leafs)
-        out = {**left, **right}
-        out['...'] = right['...'].reach(left['...'])
-        return out
+        left = self.children[0]._eval(**props)
+        right = self.children[1]._eval(**props)
+        return right.reach(left)
     
-    def _check(self, **leafs: Set) -> str:
-        left_approx = self.children[0]._check(**leafs)
-        right_approx = self.children[1]._check(**leafs)
+    def _approxCheck(self, **props: Set) -> str:
+        left_approx = self.children[0]._approxCheck(**props)
+        right_approx = self.children[1]._approxCheck(**props)
         # TODO: Implement approximation type checking for Until
         return 'exact'
 
@@ -195,13 +189,21 @@ class Always(Spec):
     
     max_children = 1
 
-    def _eval(self, **leafs: Set) -> dict[str, Set]:
-        out = self.children[0]._eval(**leafs)
-        out['...'] = out['...'].rci()
-        return out
+    def _eval(self, **props: Set) -> Set:
+        return self.children[0]._eval(**props).rci()
 
-    def _check(self, **leafs: Set) -> str:
-        left_approx = self.children[0]._check(**leafs)
-        right_approx = self.children[1]._check(**leafs)
+    def _approxCheck(self, **props: Set) -> str:
+        left_approx = self.children[0]._approxCheck(**props)
+        right_approx = self.children[1]._approxCheck(**props)
         # TODO: Implement approximation type checking for Until
         return 'exact'
+    
+## ## ## DERIVED OPERATORS ## ## ##
+
+class Implies(Spec):
+
+    max_children = 2
+    min_children = 2
+
+    equiv = lambda a, b: Or(Not(a), b)
+    
