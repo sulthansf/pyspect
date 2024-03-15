@@ -3,15 +3,13 @@ from typing_extensions import Self, Optional
 
 import numpy as np
 
-U, E, O, I = -1, 0, 1, None
-ApproxCheckRet = Optional[int]
-
-STR2APPROX = dict(U=-1,     E=0,     O=1,    I=None,
-                  under=-1, exact=0, over=1, invalid=None)
+U, E, O, I = -1.0, 0.0, 1.0, float('nan')
+STR2APPROX = dict(U=U,     E=E,     O=O,    I=I,
+                  under=U, exact=E, over=O, invalid=I)
 
 class Set(ABC):
 
-    approx: ApproxCheckRet
+    approx: float
 
     def __init__(self, approx: str = 'exact'):
         # assert approx in STR2APPROX, f'"{approx}"nvalid approximation type'

@@ -23,12 +23,17 @@ class Spec:
     children: list[Self]
     max_children: int = -1
     min_children: int = -1
+
     equiv: Callable[..., Spec] = None
 
     def __init__(self, *children, name=''):
 
         self.name = name
-        self.children = [Proposition(c) if isinstance(c, str) else c for c in children]
+        self.children = [Proposition(child) if isinstance(child, str) else
+                         Proposition(f'_{i}', child) if isinstance(child, Set) else 
+                         child
+                         for i, child in enumerate(children)]
+
 
         if self.max_children > 0:
             assert len(self.children) <= self.max_children, f'Too many children for {type(self).__name__}'
@@ -74,8 +79,9 @@ class Proposition(Spec):
 
     max_children = 0
 
-    def __init__(self, name): 
+    def __init__(self, name: str, constant: Set = None):
         self.name = name
+        self.constant = constant
 
     def __repr__(self):
         op = type(self).__name__
@@ -88,12 +94,12 @@ class Proposition(Spec):
     def iter_props(self):
         yield self
 
-    def _eval(self, **props):
+    def _eval(self, **props: Set) -> Set:
         # '...' represents the childrens' subtree.
         # a proposition is a leaf node is itself the subtree
-        p = props[self.name]
-        if isinstance(p, Spec):
-            return p._eval(**props)
+        p = props[self.name] if self.name in props else self.constant
+        assert p is not None, f'Proposition "{self.name}" not found'
+        return p._eval() if isinstance(p, Spec) else p
 
     def _approxCheck(self, **props):
         return props[self.name].approx
@@ -151,7 +157,6 @@ class Or(Spec):
 
     def _eval(self, **props: Set) -> Set:
         out = self.children[0]._eval(**props)
-        print(self.children[0], out)
         for child in self.children[1:]:
             out = out.union(child._eval(**props))
         return out
@@ -205,5 +210,7 @@ class Implies(Spec):
     max_children = 2
     min_children = 2
 
-    equiv = lambda a, b: Or(Not(a), b)
+    @staticmethod
+    def equiv(a, b):
+        return Or(Not(a), b)
     
