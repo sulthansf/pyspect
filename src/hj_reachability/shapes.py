@@ -136,7 +136,14 @@ def rectangle(grid: Grid, target_min, target_max, axes=None):
     """
     periodics = grid._is_periodic_dim
     data = -np.inf * np.ones(grid.shape)
-    axes = axes or list(range(grid.ndim))
+    if axes is None:
+        axes = list(range(grid.ndim))
+    elif isinstance(axes, int):
+        axes = [axes]
+    if isinstance(target_min, (int, float)):
+        target_min = [target_min] * len(axes)
+    if isinstance(target_max, (int, float)):
+        target_max = [target_max] * len(axes)
     for i, vmin, vmax in zip(axes, target_min, target_max):
         if vmax < vmin and periodics[i]:
             patch = complement(ranged_space(grid, i, vmax, vmin))
