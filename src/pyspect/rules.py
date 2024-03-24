@@ -26,7 +26,7 @@ class Spec:
 
     equiv: Callable[..., Spec] = None
 
-    def __init__(self, *children, name=''):
+    def __init__(self, *children, name='', early_eval=True):
 
         self.name = name
         self.children = [Proposition(child) if isinstance(child, str) else
