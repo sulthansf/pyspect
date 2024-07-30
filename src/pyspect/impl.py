@@ -1,7 +1,7 @@
 ######################################################################
 ## Implementation Interface
 
-from typing import TypeVar, Protocol, Optional, runtime_checkable
+from typing import TypeVar, Protocol, Optional, runtime_checkable, Tuple, List, Union
 
 __all__ = (
     'ImplProto',
@@ -54,13 +54,13 @@ class ImplReachBack(ImplProto, Protocol[R]):
 R = TypeVar('R')
 class ImplAxes(ImplProto, Protocol[R]):
     ndim: int
-    axes: tuple[str, ...]
+    axes: Tuple[str, ...]
     def axis_is_periodic(self, i: int) -> bool: ...
 
 R = TypeVar('R')
 class ImplPlaneCut(ImplAxes[R], ImplProto, Protocol[R]):
     def plane_cut(self, 
-                  normal: list[float], 
-                  offset: Optional[list[float]] = None, 
-                  axes: Optional[int|list[int]] = None) -> R: ...
+                  normal: List[float], 
+                  offset: Optional[List[float]] = None, 
+                  axes: Optional[Union[int,List[int]]] = None) -> R: ...
 

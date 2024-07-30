@@ -3,7 +3,8 @@
 
 from enum import IntEnum
 from dataclasses import dataclass, field
-from typing import Optional, TypeVar, TypeAlias, Generic
+from typing import Optional, TypeVar, Generic, Tuple, Union
+from typing_extensions import TypeAlias
 
 from .lang import *
 from .impl import *
@@ -31,20 +32,20 @@ class APPROX(IntEnum):
 ApproxType: TypeAlias = Optional[APPROX]
 
 I, R = TypeVar('I'), TypeVar('R')
-TLTLike: TypeAlias = SyntaxTree | SetBuilder[I, R] | 'TLT[I, R]'
+TLTLike: TypeAlias = Union[SyntaxTree,SetBuilder[I, R],'TLT[I, R]']
 
 I, R = TypeVar('I'), TypeVar('R')
-LabellingMap: TypeAlias = idict[str, None | SetBuilder[I, R]]
+LabellingMap: TypeAlias = idict#[str, Union[None,SetBuilder[I, R]]]
 
 
 I, R = TypeVar('I'), TypeVar('R')
-@dataclass(slots=True, frozen=True)
+@dataclass(frozen=True)
 class TLT(Generic[I, R]):
     _formula: SyntaxTree        = field(default='_0')
     _builder: SetBuilder[I, R]  = field(default=ABSURD)         # If constructed with the absurd set, then the TLT is also absurd, i.e. cannot be realized.
     _approx: ApproxType         = field(default=APPROX.EXACT)
-    _lmap: LabellingMap[I, R]   = field(default_factory=idict)  # Sets are associated with names using ReferredSets.
-    _reqs: tuple[ImplProto]     = field(default_factory=tuple)  # TODO: Not supported yet. See intended use in `realize`.
+    _lmap: LabellingMap         = field(default_factory=idict)  # Sets are associated with names using ReferredSets.
+    _reqs: Tuple[ImplProto]     = field(default_factory=tuple)  # TODO: Not supported yet. See intended use in `realize`.
 
     def realize(self, impl: I) -> R:
         for req in self._reqs:
@@ -68,7 +69,9 @@ class TLT(Generic[I, R]):
             free = {p: cls.construct(m[p])
                     for p in arg.iter_free() 
                     if p in m and p not in arg._lmap}
-            lmap = idict({p: tlt._builder for p, tlt in free.items()} | arg._lmap)
+            lmap = {p: tlt._builder for p, tlt in free.items()}
+            lmap.update(arg._lmap)
+            lmap = idict(lmap)
             reqs = tuple({tlt._reqs for tlt in free.values()}.union(arg._reqs))
             return cls(arg._formula, arg._builder, arg._approx, lmap, reqs)
 
@@ -80,8 +83,8 @@ class TLT(Generic[I, R]):
             # TLT will hold a full formula that refers to even constant sets
             # (information is not lost as when internally binding constant sets to
             # builder functions). 
-            uid = '_' + hash(arg).to_bytes(8).hex()
-            return cls(uid, arg)
+            uid = '_' + hash(arg).to_bytes(8,"big").hex()
+            return cls.construct(cls(uid, arg), **m)
         
         elif isinstance(arg, str): # Terminal / Atomic Proposition
             return (cls.construct(m.pop(arg), **m) if arg in m else 
@@ -135,6 +138,7 @@ class TLT(Generic[I, R]):
             sb1, a1 = _1._builder, _1._approx # constraint
             sb2, a2 = _2._builder, _2._approx # target
             return cls((op_f, _1._formula, _2._formula),
+                    #    TODO: Implement reach_back
                        lambda impl, **m: impl.reach_forw(sb2(impl, **m), sb1(impl, **m)),
                        APPROX.EXACT, # TODO
                        {p: _1._lmap.get(p) or _2._lmap.get(p)

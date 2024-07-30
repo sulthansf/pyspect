@@ -15,7 +15,6 @@ def auto_ax(f):
 
 @auto_ax
 def plot_im(im, *, ax, transpose=True, **kwargs):
-    im = np.where(im, 0.5, np.nan)
     if transpose:
         im = np.transpose(im)
     kwargs.setdefault('cmap', 'Blues')
@@ -37,6 +36,11 @@ def plot_set_many(*vfs, **kwargs):
     return out
 
 def new_map(*pairs, **kwargs):
+    
+    fig, ax = plt.subplots(1, 1, sharex=True, sharey=True, figsize=(9*4/3, 9))
+    ax.set_ylabel("y [m]")
+    ax.set_xlabel("x [m]")
+    ax.invert_yaxis()
 
     if 'extent' not in kwargs:
         min_bounds = kwargs.pop('min_bounds')
@@ -45,15 +49,12 @@ def new_map(*pairs, **kwargs):
                 min_bounds[1], max_bounds[1]]
         kwargs['extent'] = extent
 
-    background = kwargs.pop('background')
-    if not isinstance(background, np.ndarray):
-        background = plt.imread(background)
-
-    fig, ax = plt.subplots(1, 1, sharex=True, sharey=True, figsize=(9*4/3, 9))
-    ax.set_ylabel("y [m]")
-    ax.set_xlabel("x [m]")
-    ax.invert_yaxis()
-    ax.imshow(background, extent=kwargs['extent'])
+    if "background" in kwargs:
+        background = kwargs.pop('background')
+        if not isinstance(background, np.ndarray):
+            background = plt.imread(background)
+        ax.imshow(background, extent=kwargs['extent'])
+        
     for cmap, vf in pairs:
         kw = dict(alpha=0.9, cmap=plt.get_cmap(cmap))
         kw.update(kwargs)

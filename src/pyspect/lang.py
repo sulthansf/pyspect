@@ -2,14 +2,15 @@
 ## Language: Linear Temporal Logic
 
 from collections.abc import Generator
-from typing import Callable, TypeAlias
+from typing import Callable, Tuple, Dict, Union
+from typing_extensions import TypeAlias
 
 
 Terminal: TypeAlias = str
 Operator: TypeAlias = str
-UnOperator: TypeAlias = tuple[Operator, 'SyntaxTree']
-BiOperator: TypeAlias = tuple[Operator, 'SyntaxTree', 'SyntaxTree'] 
-SyntaxTree: TypeAlias  = (Terminal | UnOperator | BiOperator)
+UnOperator: TypeAlias = Tuple[Operator, 'SyntaxTree']
+BiOperator: TypeAlias = Tuple[Operator, 'SyntaxTree', 'SyntaxTree'] 
+SyntaxTree: TypeAlias  = Union[Terminal, UnOperator, BiOperator]
 Constructor: TypeAlias = Callable[..., SyntaxTree]
 
 
@@ -22,10 +23,10 @@ OP_UNTIL: Operator  = 'UNTIL'
 OP_ALWAYS: Operator = 'ALWAYS'
 
 
-_EQUIVS: dict[str, Constructor] = {}
+_EQUIVS: Dict[str, Constructor] = {}
 
 
-def iter_frml(ast: SyntaxTree) -> Generator[SyntaxTree]:
+def iter_frml(ast: SyntaxTree):
     if isinstance(ast, Terminal):
         yield ast
     else:
