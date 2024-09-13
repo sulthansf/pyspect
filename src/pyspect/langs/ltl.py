@@ -57,9 +57,9 @@ class ReachAvoid(UNTIL, ALWAYS):
         )
     
     @staticmethod
-    def _check__ALWAYS(a1: APPROXDIR, a2: APPROXDIR) -> APPROXDIR:
-        a0 = APPROXDIR.UNDER # reach should normally (always?) implement UNDER
-        return (APPROXDIR.INVALID if a0 != a2 or a1 != a2 else a2)
+    def _check__ALWAYS(a: APPROXDIR) -> APPROXDIR:
+        a0 = APPROXDIR.UNDER
+        return (APPROXDIR.INVALID if a != a0 else a)
     
 def Until(lhs: TLTLike, rhs: TLTLike) -> TLT:
     return TLT.construct(UNTIL('_1', '_2'), _1=lhs, _2=rhs)
